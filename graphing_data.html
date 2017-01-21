@@ -86,11 +86,8 @@
 </html>
 <script>
     $(document).ready(function(){
-
-        // AWS.config.accessKeyId = 'AKIAIXHH7KUMVY7ASKNQ';
-        // AWS.config.secretAccessKey = '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';
         AWS.config.region = 'us-west-2'; // Region
-        AWS.config.credentials = new AWS.Credentials('AKIAIXHH7KUMVY7ASKNQ', 'LfiH9Z3hknRTpL5T1JGMelcDZU2wSpSwsYQceYC7');
+        AWS.config.credentials = new AWS.Credentials('', '');
         var dynamodb = new AWS.DynamoDB();
         var datumVal = new Date() - 864000;
         var params = {
