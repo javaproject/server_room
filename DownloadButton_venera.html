@@ -21,7 +21,7 @@
                 ":key": { "S" : "sensordata"},
                 ":datum": { "S" : datumVal.toString()}
             }
-           
+	}
 function getData() {
             dynamodb.query(params, function (err, data) {
                 if (err) {
