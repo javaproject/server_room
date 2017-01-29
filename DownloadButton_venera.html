@@ -8,6 +8,7 @@
         AWS.config.region = 'us-west-2';  
         AWS.config.credentials = new AWS.Credentials('', '');
         var dynamodb = new AWS.DynamoDB();
+	//pse ?? duhet ti marresh te gjitha vlerat jo si tek outputi grafikut 
         var datumVal = new Date() - 864000;
         var params = {
             TableName: 'serverRoomSensor',
