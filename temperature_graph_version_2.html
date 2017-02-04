@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <title>Server Room Monitoring App</title>
+    <!-- Bootstrap core CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.1/css/bootstrap.min.css">
+
+    <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+    <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1.40.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.4.0/Chart.min.js"></script>
+
+	<style>
+		.pulsor {
+		    -webkit-animation: pusate 1s infinite alternate;
+		    -moz-animation: pusate 1s infinite alternate;
+		    -animation: pusate 1s infinite alternate;
+		    text-shadow: 0 0 8px #ccc;
+		    width: 1000px;
+		    height: 100px;
+		    top:4px;
+		}
+	      @keyframes pusate {
+	        from { box-shadow: 0 0 10px #333; }
+	        to { box-shadow: 0 0 20px #c00; }
+		}
+		
+
+	</style>
+</head>
+<body>
+<div class="container">
+    <br />
+    <div class="jumbotron text-center">
+        <h1>Server Room Dashboard</h1>
+        <p class="lead"></p>
+    </div>
+ <!--    <div class="row" id="no-data">
+          <a class="close" data-dismiss="alert">x</a> 
+          <center><strong><h3 class="pulsor">There is no data on DynamoDB</h3></strong></center>           
+    </div> -->
+   <!--  style="display:none;" -->
+    <div class="row" id = "graph-panel" >
+        <div class="col-md-6">
+            <canvas id="temperaturegraph" class="inner cover" width="500" height="320"></canvas>
+            <br />
+            <div class="panel panel-default">
+                <div class="panel-body">
+                    <div class="row">
+                        <div class="col-sm-3 text-right">
+                            <span class="label label-danger">High</span>&nbsp;
+                        </div>
+                        <div class="col-sm-9">
+                            <span id="t-high" class="text-muted">(n/a)</span>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-sm-3 text-right">
+                            <span class="label label-success">Low</span>&nbsp;
+                        </div>
+                        <div class="col-sm-9">
+                            <span id="t-low" class="text-muted">(n/a)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <canvas id="humiditygraph" class="inner cover" width="500" height="320"></canvas>
+            <br />
+            <div class="panel panel-default">
+                <div class="panel-body">
+                    <div class="row">
+                        <div class="col-sm-3 text-right">
+                            <span class="label label-danger">High</span>&nbsp;
+                        </div>
+                        <div class="col-sm-9">
+                            <span id="h-high" class="text-muted">(n/a)</span>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-sm-3 text-right">
+                            <span class="label label-success">Low</span>&nbsp;
+                        </div>
+                        <div class="col-sm-9">
+                            <span id="h-low" class="text-muted">(n/a)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+    </div>
+
+</div> <!-- /container -->
+</body>
+</html>
+<script>
+    $(document).ready(function(){
+        AWS.config.region = 'us-west-2'; // Region
+        AWS.config.credentials = new AWS.Credentials('AKIAIXHH7KUMVY7ASKNQ', 'LfiH9Z3hknRTpL5T1JGMelcDZU2wSpSwsYQceYC7');
+        var dynamodb = new AWS.DynamoDB();
+        var datumVal = new Date() - 86400;
+        var datumVal1 = new Date() + 86500;
+        console.log(datumVal.toString());
+        console.log(datumVal1.toString());
+        var params = {
+            TableName: 'serverRoomSensor',
+            KeyConditionExpression: '#key = :key',
+            ExpressionAttributeNames: {
+                "#key": "key"
+            },
+            ExpressionAttributeValues: {
+                ":key": { "S" : "sensordata"}
+            },
+           Limit: 10,
+           ScanIndexForward: false 
+        };
+
+        dynamodb.query(params, function (err, data) {
+                if (err) {
+                    console.log(err);
+                    return null;
+                } else {
+                     console.log(data['Items']);
+                }
+         }); 
+            
+        var tctx = $("#temperaturegraph").get(0).getContext("2d");
+        var hctx = $("#humiditygraph").get(0).getContext("2d");
+        /* Set the options for our chart */
+        var options = {
+            responsive: true,
+            showLines: true,
+            scales: {
+                xAxes: [{
+                    display: false
+                }],
+                yAxes: [{
+                    ticks: {
+                        beginAtZero:true
+                    }
+                }]
+            },
+            showXLabels: 10
+        };
+        /* Set the inital data */
+        var tinit = {
+            labels: [],
+            datasets: [
+                {
+                    label: "Temperature °C",
+                    backgroundColor: 'rgba(204,229,255,0.5)',
+                    borderColor: 'rgba(153,204,255,0.75)',
+                    data: []
+                }
+            ]
+        };
+        var hinit = {
+            labels: [],
+            datasets: [
+                {
+                    label: "Humidity %",
+                    backgroundColor: 'rgba(229,204,255,0.5)',
+                    borderColor: 'rgba(204,153,255,0.75)',
+                    data: []
+                }
+            ]
+        };
+        var temperaturegraph = new Chart.Line(tctx, {data: tinit, options: options});
+        var humiditygraph = new Chart.Line(hctx, {data: hinit, options: options});
+        $(function() {
+            getData();
+            $.ajaxSetup({ cache: false });
+            setInterval(getData, 3000);
+        });
+	        /* Makes a scan of the DynamoDB table to set a data object for the chart */
+	        function getData() {
+	            dynamodb.query(params, function (err, data) {
+	                if (err) {
+	                    console.log(err);
+	                    return null;
+	                } else {
+	                
+						// placeholders for the data arrays
+	                    var temperatureValues = [];
+	                    var humidityValues = [];
+	                    var labelValues = [];
+						// placeholders for the data read
+	                    var temperatureRead = 0.0;
+	                    var humidityRead = 0.0;
+	                    var timeRead = "";
+						// placeholders for the high/low markers
+	                    var temperatureHigh = -999.0;
+	                    var humidityHigh = -999.0;
+	                    var temperatureLow = 999.0;
+	                    var humidityLow = 999.0;
+	                    var temperatureHighTime = "";
+	                    var temperatureLowTime = "";
+	                    var humidityHighTime = "";
+	                    var humidityLowTime = "";
+	                    console.log("checking this fucking thing !!");
+	                    for (var i in data['Items']) {
+	                        // read the values from the dynamodb JSON packet
+	                        temperatureRead = parseFloat(data['Items'][i]['payload']['M']['temperature']['N']);
+	                        humidityRead = parseFloat(data['Items'][i]['payload']['M']['humidity']['N']);
+	                        timeRead = new Date(parseInt(data['Items'][i]['timestamp']['S'],10)).toUTCString().slice(0, -3);
+	                        //parseInt(Milliseconds,10)new Date(parseInt(Milliseconds,10));  
+	                        console.log("checking this fucking thing !! DATE IS: "+timeRead);
+							// check the read values for high/low watermarks
+	                        if (temperatureRead < temperatureLow) {
+	                            temperatureLow = temperatureRead;
+	                            temperatureLowTime = timeRead;
+	                        }
+	                        if (temperatureRead > temperatureHigh) {
+	                            temperatureHigh = temperatureRead;
+	                            temperatureHighTime = timeRead;
+	                        }
+	                        if (humidityRead < humidityLow) {
+	                            humidityLow = humidityRead;
+	                            humidityLowTime = timeRead;
+	                        }
+	                        if (humidityRead > humidityHigh) {
+	                            humidityHigh = humidityRead;
+	                            humidityHighTime = timeRead;
+	                        }
+							// append the read data to the data arrays
+	                        temperatureValues.push(temperatureRead);
+	                        humidityValues.push(humidityRead);
+	                        labelValues.push(timeRead);
+	                    }
+						// set the chart object data and label arrays
+	                    temperaturegraph.data.labels = labelValues;
+	                    temperaturegraph.data.datasets[0].data = temperatureValues;
+	                    humiditygraph.data.labels = labelValues;
+	                    humiditygraph.data.datasets[0].data = humidityValues;
+						// redraw the graph canvas
+	                    temperaturegraph.update();
+	                    humiditygraph.update();
+						// update the high/low watermark sections
+	                    $('#t-high').text(Number(temperatureHigh).toFixed(2).toString() + '°C at ' + temperatureHighTime);
+	                    $('#t-low').text(Number(temperatureLow).toFixed(2).toString() + '°C at ' + temperatureLowTime);
+	                    $('#h-high').text(Number(humidityHigh).toFixed(2).toString() + '% at ' + humidityHighTime);
+	                    $('#h-low').text(Number(humidityLow).toFixed(2).toString() + '% at ' + humidityLowTime);
+	                }
+	            });
+	        }
+
+    });
+</script>
